@@ -4,13 +4,13 @@
 ;; Synopsis:
 ;; A multi-owner contract to manage Stacks Blockchain resources that requires n number of confirmations.
 ;; Owners submit new transactions specifying a target executor function of a smart contract that implements
-;; executor-trait interface. The executor function gets triggered along with two parameters (param-p a principal 
-;; parameter and param-u an uint parameter) when the transaction receive sufficient number of confirmations from 
+;; executor-trait interface. The executor function gets triggered along with two parameters (param-p a principal
+;; parameter and param-u an uint parameter) when the transaction receive sufficient number of confirmations from
 ;; owners. The target executor function can execute any kind of code with authority of the safe contract instance
-;; such as STX transfer, sip-009-nft transfer, sip-010-trait-ft transfer and much more. Owners list limited to 20 
+;; such as STX transfer, sip-009-nft transfer, sip-010-trait-ft transfer and much more. Owners list limited to 20
 ;; members at maximum considering a realistic use case for this kind of multi-owner safe contract.
 
-(use-trait executor-trait .traits.executor-trait) 
+(use-trait executor-trait .traits.executor-trait)
 (use-trait safe-trait .traits.safe-trait)
 (use-trait nft-trait .traits.sip-009-trait)
 (use-trait ft-trait .traits.sip-010-trait)
@@ -48,14 +48,14 @@
 
 ;; Returns version of the safe contract
 ;; @returns string-ascii
-(define-read-only (get-version) 
+(define-read-only (get-version)
     VERSION
 )
 
 ;; --- Owners
 
 ;; The owners list
-(define-data-var owners (list 20 principal) (list)) 
+(define-data-var owners (list 20 principal) (list))
 
 ;; Returns owner list
 ;; @returns list
@@ -67,7 +67,7 @@
 ;; @params owner
 ;; @returns bool
 (define-private (add-owner-internal (owner principal))
-    (let 
+    (let
         (
            (new-owners (unwrap! (as-max-len? (append (var-get owners) owner) u20) ERR-OWNER-OVERFLOW))
         )
@@ -113,12 +113,12 @@
 )
 
 
-;; --- Minimum confirmation threshold 
+;; --- Minimum confirmation threshold
 
 (define-data-var threshold uint u1)
 
 ;; Returns confirmation threshold
-;; @returns uint 
+;; @returns uint
 (define-read-only (get-threshold)
     (var-get threshold)
 )
@@ -148,7 +148,7 @@
 ;; Incrementing number to use as id for new transactions
 (define-data-var nonce uint u0)
 
-;; Returns nonce 
+;; Returns nonce
 ;; @returns uint
 (define-read-only (get-nonce)
  (var-get nonce)
@@ -188,7 +188,7 @@
   )
 )
 
-;; Returns true if the caller passed in the allowed-callers map 
+;; Returns true if the caller passed in the allowed-callers map
 ;; or its equal to current tx-sender
 ;; @returns bool
 (define-read-only (is-allowed-caller (caller principal))
@@ -221,8 +221,8 @@
 ;; Also trait references cannot be stored on clarity contracts either.
 ;; That's why we can't have optional `param-ft` and `param-nft` while having optional directives for `param-p`, `param-u` and `param-b`.
 
-(define-map transactions 
-    uint 
+(define-map transactions
+    uint
     {
         executor: principal,
         threshold: uint,
@@ -245,14 +245,14 @@
 ;; @params param-b ; optional buffer parameter to be passed to the executor function
 ;; @returns uint
 (define-private (add (executor <executor-trait>) (param-ft <ft-trait>) (param-nft <nft-trait>) (param-p (optional principal)) (param-u (optional uint)) (param-b (optional (buff 20))))
-    (let 
+    (let
         (
             (tx-id (get-nonce))
-        ) 
+        )
         (map-insert transactions tx-id {
             executor: (contract-of executor),
-            threshold: (var-get threshold), 
-            confirmations: (list), 
+            threshold: (var-get threshold),
+            confirmations: (list),
             confirmed: false,
             param-ft: (contract-of param-ft),
             param-nft: (contract-of param-nft),
@@ -293,7 +293,7 @@
 ;; @params tx-id ; transaction id
 ;; @returns (response bool)
 (define-public (revoke (tx-id uint))
-    (let 
+    (let
         (
             (tx (unwrap! (map-get? transactions tx-id) ERR-TX-NOT-FOUND))
             (confirmations (get confirmations tx))
@@ -302,7 +302,7 @@
         (asserts! (is-eq (get confirmed tx) false) ERR-TX-CONFIRMED)
         (asserts! (is-some (index-of confirmations tx-sender)) ERR-TX-NOT-CONFIRMED-BY-SENDER)
         (var-set rem-confirmation tx-sender)
-        (let 
+        (let
             (
                 (new-confirmations  (unwrap-panic (as-max-len? (filter remove-confirmation-filter confirmations) u20)))
                 (new-tx (merge tx {confirmations: new-confirmations}))
@@ -315,7 +315,7 @@
 )
 
 
-;; Allows an owner to confirm a tranaction. If the transaction reaches sufficient confirmation number 
+;; Allows an owner to confirm a tranaction. If the transaction reaches sufficient confirmation number
 ;; then the executor specified on the transaction gets triggered.
 ;; @restricted to owners who hasn't confirmed the transaction yet
 ;; @params executor ; contract address to be executed
@@ -327,7 +327,7 @@
     (begin
         (asserts! (is-allowed-caller contract-caller) ERR-ONLY-END-USER)
         (asserts! (is-some (index-of (var-get owners) tx-sender)) ERR-UNAUTHORIZED-SENDER)
-        (asserts! (is-eq (contract-of safe) SELF) ERR-INVALID-SAFE) 
+        (asserts! (is-eq (contract-of safe) SELF) ERR-INVALID-SAFE)
         (let
             (
                 (tx (unwrap! (map-get? transactions tx-id) ERR-TX-NOT-FOUND))
@@ -339,8 +339,8 @@
             (asserts! (is-eq (get executor tx) (contract-of executor)) ERR-TX-INVALID-EXECUTOR)
             (asserts! (is-eq (get param-ft tx) (contract-of param-ft)) ERR-TX-INVALID-FT)
             (asserts! (is-eq (get param-nft tx) (contract-of param-nft)) ERR-TX-INVALID-NFT)
-            
-            (let 
+
+            (let
                 (
                     (new-confirmations (unwrap-panic (as-max-len? (append confirmations tx-sender) u20)))
                     (confirmed (>= (len new-confirmations) (get threshold tx)))
@@ -355,7 +355,7 @@
     )
 )
 
-;; Allows an owner to add a new transaction and confirms it for the owner who submitted it. 
+;; Allows an owner to add a new transaction and confirms it for the owner who submitted it.
 ;; So, a newly submitted transaction gets one confirmation automatically. If the safe's minimum
 ;; required confirmation number is one then the transaction gets executed in this step.
 ;; @restricted to owners
@@ -371,7 +371,7 @@
     (begin
         (asserts! (is-allowed-caller contract-caller) ERR-ONLY-END-USER)
         (asserts! (is-some (index-of (var-get owners) tx-sender)) ERR-UNAUTHORIZED-SENDER)
-        (asserts! (is-eq (contract-of safe) SELF) ERR-INVALID-SAFE) 
+        (asserts! (is-eq (contract-of safe) SELF) ERR-INVALID-SAFE)
         (let
             ((tx-id (add executor param-ft param-nft param-p param-u param-b)))
             (print {action: "multisafe-submit", sender: tx-sender, tx-id: tx-id, executor: executor, param-ft: param-ft, param-nft: param-nft, param-p: param-p, param-u: param-u, param-b: param-b})
@@ -383,7 +383,7 @@
 
 ;; --- Magic Bridge integration
 
-;; Magic Bridge contract address. 
+;; Magic Bridge contract address.
 ;; By default address of deployed safe to be able to use none-optional principal.
 (define-data-var mb-address principal SELF)
 
@@ -398,7 +398,7 @@
     )
 )
 
-;; Returns magic bridge contract address 
+;; Returns magic bridge contract address
 ;; @returns principal
 (define-read-only (get-mb-address)
  (var-get mb-address)
@@ -436,7 +436,7 @@
 ;; @param supplier-id; the supplier used in this swap
 ;; @param min-to-receive; minimum receivable calculated off-chain to avoid the supplier front-run the swap by adjusting fees
 ;; @returns (response bool)
-(define-public (mb-escrow-swap 
+(define-public (mb-escrow-swap
     (bridge <magic-bridge-trait>)
     (block { header: (buff 80), height: uint })
     (prev-blocks (list 10 (buff 80)))
@@ -471,8 +471,6 @@
     )
 )
 
-(init (list 
-    'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5 
-    'ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG 
-    'ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC
-) u2) 
+(init (list
+    'ST287GF5M9WEJ6BXEN7NPN1WGA95YWXWBE0ZRK6X
+) u1)
